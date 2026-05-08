@@ -42,7 +42,10 @@ object Parser:
 
   /** Parses the program written in `source`. */
   def parse(source: SourceFile): Syntax[TermTree] =
-    term(using Context(source, source.start)).stack
+    val result = term(using Context(source, source.start))
+    if peek(using result.context).isDefined then
+      throw expected("end of input")(using result.context)
+    result.stack
 
   /** Parses a term. */
   private def term(using Context): Result[Syntax[TermTree]] =

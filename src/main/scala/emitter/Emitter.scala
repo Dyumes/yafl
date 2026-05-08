@@ -1,7 +1,7 @@
 package yafl.emitter
 
 import yafl.syntax.{InfixOperator, Syntax, TermTree}
-import yafl.typer.{Type}
+import yafl.typer.{Type, TypedProgram}
 import yafl.{Diagnostic, Rope}
 
 object Emitter:
@@ -17,8 +17,8 @@ object Emitter:
   type Result[+T] = yafl.Result[T, Context]
 
   /** Returns code of `program`, reading the type of each term from `types`. */
-  def emit(program: Syntax[TermTree], types: Map[Syntax[TermTree], Type]): String =
-    val main = emitMain(program)(using Context(types))
+  def emit(program: TypedProgram): String =
+    val main = emitMain(program.syntax)(using Context(program.types))
     s"(module ${main.value})"
 
   /** Returns the code of the main function. */

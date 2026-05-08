@@ -90,12 +90,12 @@ end given
     val source = SourceFile.contentsOf(arguments.filepath)
 
     // Run the compilation pipeline.
-    val program = Parser.parse(source)
+    val untyped = Parser.parse(source)
     if arguments.stage == OutputContents.Syntax then
-      write(program.toString, arguments.output)
+      write(untyped.toString, arguments.output)
     else
-      val types = Typer.check(program)
-      val wat = Emitter.emit(program, types)
+      val typed = Typer.check(untyped)
+      val wat = Emitter.emit(typed)
       if arguments.stage == OutputContents.Wat then
         write(wat, arguments.output)
       else

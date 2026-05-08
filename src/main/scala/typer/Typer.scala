@@ -35,10 +35,10 @@ object Typer:
   /** The result of type checking an expression. */
   type Result[+T] = yafl.Result[T, Context]
 
-  /** Type checks program and returns a map from each (sub)term to its type. */
-  def check(program: Syntax[TermTree]): Map[Syntax[TermTree], Type] =
+  /** Retruns `program` typed. */
+  def check(program: Syntax[TermTree]): TypedProgram =
     val typed = typeOf(program)(using Context.builtin)
-    typed.state.types
+    TypedProgram(program, typed.state.types)
 
   /** Returns the type of `term` in an updated context mapping `term` to that type. */
   private def typeOf(term: Syntax[TermTree])(using Context): Result[Type] = {

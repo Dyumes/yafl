@@ -1,6 +1,5 @@
 import yafl.SourceFile
-import yafl.parser.Token
-import yafl.parser.nextToken
+import yafl.parser.{nextToken, Token}
 
 final class LexerTests extends munit.FunSuite:
 

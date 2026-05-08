@@ -46,10 +46,10 @@ object Typer:
             b
           case Type.Arrow(a, _) =>
             throw Diagnostic(
-              s"found '${u}', expected '${a}", e.argument.span)
+              s"found '${u}', expected '${a}'", e.argument.span)
           case _ =>
             throw Diagnostic(
-              s"cannot apply value of type '${t}' to argument of type '${u}", syntax.span)
+              s"cannot apply value of type '${t}' to argument of type '${u}'", syntax.span)
 
       case _ =>
         ???

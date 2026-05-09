@@ -7,7 +7,10 @@ import yafl.typer.Type
   * @param description A description of the error that occured.
   * @param span The source code identified as the cause of the error.
   */
-case class Diagnostic(description: String, span: SourceSpan) extends Error
+case class Diagnostic(description: String, span: SourceSpan) extends Error:
+
+  override def getMessage(): String =
+    description
 
 object Diagnostic:
 

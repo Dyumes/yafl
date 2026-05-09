@@ -63,6 +63,8 @@ object Arguments:
           loop(i + 1, filepath, output, OutputContents.Wat)
         case "--wasm" =>
           loop(i + 1, filepath, output, OutputContents.Wasm)
+        case a if a.startsWith("-") =>
+          throw Unexpected(a)
         case a if filepath.isEmpty =>
           loop(i + 1, Some(a), output, stage)
         case a =>

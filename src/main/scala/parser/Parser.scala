@@ -100,9 +100,9 @@ object Parser:
       case _ => throw expected("term")
 
   private def conditional(using Context): Result[Syntax[TermTree.Conditional]] =
-    take(Token.`if`, "if").and { start =>
-      term.andDiscard(take(Token.`then`, "then")).and { condition =>
-        term.andDiscard(take(Token.`else`, "else")).and { success =>
+    take(Token.`if`, "'if'").and { start =>
+      term.andDiscard(take(Token.`then`, "'then'")).and { condition =>
+        term.andDiscard(take(Token.`else`, "'else'")).and { success =>
           term.map { failure =>
             Syntax(
               TermTree.Conditional(condition, success, failure), start.span.extendedToCover(failure.span)
@@ -113,9 +113,9 @@ object Parser:
     }
 
   private def binding(using Context): Result[Syntax[TermTree.Binding]] =
-    take(Token.let, "let").and { start =>
-      termIdentifier.andDiscard(take(Token.equal, "=")).and { name =>
-        term.andDiscard(take(Token.semicolon, ";")).and { initializer =>
+    take(Token.let, "'let'").and { start =>
+      termIdentifier.andDiscard(take(Token.equal, "'='")).and { name =>
+        term.andDiscard(take(Token.semicolon, "';'")).and { initializer =>
           term.map { body =>
             Syntax(
               TermTree.Binding(name, initializer, body), start.span.extendedToCover(body.span)

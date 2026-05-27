@@ -82,7 +82,14 @@ object Parser:
 
   /** Parses a simple term of the application of a prefix operator. */
   private def prefixTerm(using Context): Result[Syntax[TermTree]] =
-    typeApplication
+    peek.map(token => token.tag) match
+      case Some(Token.operator) =>
+        take(Token.operator, "operator").map(o => Syntax(TermTree.Variable(s"prefix${o.text}"), o.span)).and { op =>
+          prefixTerm.map { right =>
+            Syntax(TermTree.TermApplication(op, right), op.span.extendedToCover(right.span))
+          }
+        }
+      case _ => typeApplication
 
   /** Parses a simple term or a type application. */
   private def typeApplication(using Context): Result[Syntax[TermTree]] =

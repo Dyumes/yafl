@@ -106,7 +106,7 @@ All tasks have an associated test that you can use to exercise your implementati
   Consequently, it is straightforward for the parser to recognize the start of a construction.
   You can take inspiration from the part of the parser that is handling the expression of a lambda to write your code.
 
-- [ ] **Type abstractions** (required)
+- [X] **Type abstractions** (required)
 
   Type abstractions have the form `[T] => e`.
   Similarly to conditionals and bindings, they also start with a token (i.e., `[`) that cannot occur at the beginning of any other construction.

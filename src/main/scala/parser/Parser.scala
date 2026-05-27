@@ -93,7 +93,29 @@ object Parser:
 
   /** Parses a simple term or a type application. */
   private def typeApplication(using Context): Result[Syntax[TermTree]] =
-    simpleTerm
+
+    def trailingTypeArguments(args: List[Syntax[TypeTree]])(using Context): Result[List[Syntax[TypeTree]]] =
+      takeIf(Token.hasTag(Token.comma)) match
+        case Some(separator) =>
+          typ3(using separator.state).and(arg => trailingTypeArguments(arg :: args))
+        case _ => result(args)
+
+    def loop(left : Syntax[TermTree])(using Context) : Result[Syntax[TermTree]] =
+      peek.map((token) => token.tag) match
+        case Some(Token.leftBracket) => take(Token.leftBracket, "'['").and { start =>
+          typ3.and { firstArgument =>
+            trailingTypeArguments(List(firstArgument)).and { arguments =>
+              take(Token.rightBracket, "']'").and { end =>
+                val comb = arguments.foldRight(left) { (arg, acc) =>
+                  Syntax(TermTree.TypeApplication(acc, arg), acc.span.extendedToCover(end.span))}
+                loop(comb)
+              }
+            }
+          }
+        }
+        case _ => result(left)
+    simpleTerm.and(loop)
+
 
   /** Parses a simple term. */
   private def simpleTerm(using Context): Result[Syntax[TermTree]] =
@@ -236,18 +258,57 @@ object Parser:
 
   /** Parses a type. */
   private def typ3(using Context): Result[Syntax[TypeTree]] =
-    simpleType
+    simpleType.and {firstType =>
+      peek.map(token => token.tag) match
+        case Some(Token.thinArrow) =>
+          take(Token.thinArrow, "'->'").and { arrow =>
+            typ3.map{ otherType =>
+              Syntax(TypeTree.Arrow(firstType, otherType), firstType.span.extendedToCover(otherType.span))
+            }
+          }
+        case _ => result(firstType)
+    }
 
   /** Parses a simple type. */
   private def simpleType(using Context): Result[Syntax[TypeTree]] =
     peek.map((t) => t.tag) match
       case Some(Token.identifier) => typeIdentifier
+      case Some(Token.leftBracket) => universalType
+      case Some(Token.leftParenthesis) => parenthesizedType
       case _ => throw expected("type")
 
   /** Parses a type identifier. */
   private def typeIdentifier(using Context): Result[Syntax[TypeTree.Variable]] =
     take(Token.identifier, "identifier")
       .map((n) => Syntax(TypeTree.Variable(n.text.toString), n.span))
+
+  private def universalType(using Context) : Result[Syntax[TypeTree.ForAll]] =
+    take(Token.leftBracket, "'['").and { start =>
+      typeIdentifier.and { firstParameter =>
+        trailingTypeParameters(List(firstParameter))
+          .andDiscard(take(Token.rightBracket, "']'"))
+          .andDiscard(take(Token.thickArrow, "'=>'"))
+          .and { params =>
+            typ3.map { body =>
+              val desug = params.foldLeft(body) { (b, p) =>
+                Syntax(TypeTree.ForAll(p, b), p.span.extendedToCover(b.span))
+              }
+              Syntax(
+                desug.value.asInstanceOf[TypeTree.ForAll], start.span.extendedToCover(body.span)
+              )
+            }
+          }
+      }
+    }
+
+  private def parenthesizedType(using Context) : Result[Syntax[TypeTree]] =
+    take(Token.leftParenthesis, "'('").and { start =>
+      typ3.and {body =>
+        take(Token.rightParenthesis, "')'").map { end =>
+          Syntax(body.value, start.span.extendedToCover(end.span))
+        }
+      }
+    }
 
   /** Returns the next token in `source`, if any. */
   private def peek(using Context): Option[Token] =

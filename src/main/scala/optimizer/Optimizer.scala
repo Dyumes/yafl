@@ -32,6 +32,12 @@ object Optimizer:
           constantFold(updated) match
             case Some(s) => (s, Map(s -> types(tree)))
             case _ => (updated, (ts ++ us).updated(updated, types(tree)))
+        /*
+        case e: TermTree.Conditional =>
+          val (condition, ts1) = constantFoldRecursively(e.condition, types)
+          val (success, ts2) = constantFoldRecursively(e.success, ts1)
+
+*/
 
         case _ =>
           (tree, Map(tree -> types(tree)))

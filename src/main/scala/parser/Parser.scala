@@ -182,7 +182,6 @@ object Parser:
           term.map { definition =>
             Syntax(TermTree.RecursiveAbstraction(name, typ, definition), start.span.extendedToCover(definition.span))
           }
-
         }
       }
     }

@@ -47,11 +47,28 @@ object Optimizer:
   private def constantFold(tree: Syntax[TermTree]): Option[Syntax[TermTree]] =
     import TermTree.TermApplication as F
     tree.value match
-      case F(Syntax(F(InfixOperator(f), IntegerConstant(lhs)), _), IntegerConstant(rhs)) =>
-        val n = f match
-          case InfixOperator.Add => lhs + rhs
-          case InfixOperator.Sub => lhs - rhs
-        Some(Syntax(TermTree.IntegerLiteral(n), tree.span))
+      case F(Syntax(F(InfixOperator(f), IntegerConstant(left)), _), IntegerConstant(right)) =>
+        f match
+          case InfixOperator.Add | InfixOperator.Sub | InfixOperator.Mul | InfixOperator.Div =>
+            val n = f match
+              case InfixOperator.Add => left + right
+              case InfixOperator.Sub => left - right
+              case InfixOperator.Mul => left * right
+              case InfixOperator.Div => left / right
+              case _ => 0
+            val newTree = Syntax(TermTree.IntegerLiteral(n), tree.span)
+            Some(newTree)
+          case _ =>
+            val b = f match
+              case InfixOperator.Eq => left == right
+              case InfixOperator.Neq => left != right
+              case InfixOperator.Lt => left < right
+              case InfixOperator.Gt => left > right
+              case InfixOperator.Lte => left <= right
+              case InfixOperator.Gte => left >= right
+              case _ => false
+            val newTree = Syntax(TermTree.BooleanLiteral(b), tree.span)
+            Some(newTree)
       case _ => None
 
 end Optimizer

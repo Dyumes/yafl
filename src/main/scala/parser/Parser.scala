@@ -94,20 +94,20 @@ object Parser:
   /** Parses a simple term or a type application. */
   private def typeApplication(using Context): Result[Syntax[TermTree]] =
 
-    def trailingTypeArguments(args: List[Syntax[TypeTree]])(using Context): Result[List[Syntax[TypeTree]]] =
+    def trailingType(typs: List[Syntax[TypeTree]])(using Context): Result[List[Syntax[TypeTree]]] =
       takeIf(Token.hasTag(Token.comma)) match
         case Some(separator) =>
-          typ3(using separator.state).and(arg => trailingTypeArguments(arg :: args))
-        case _ => result(args)
+          typ3(using separator.state).and(typ => trailingType(typ :: typs))
+        case _ => result(typs)
 
     def loop(left : Syntax[TermTree])(using Context) : Result[Syntax[TermTree]] =
       peek.map((token) => token.tag) match
         case Some(Token.leftBracket) => take(Token.leftBracket, "'['").and { start =>
           typ3.and { firstArgument =>
-            trailingTypeArguments(List(firstArgument)).and { arguments =>
+            trailingType(List(firstArgument)).and { typs =>
               take(Token.rightBracket, "']'").and { end =>
-                val comb = arguments.foldRight(left) { (arg, acc) =>
-                  Syntax(TermTree.TypeApplication(acc, arg), acc.span.extendedToCover(end.span))}
+                val comb = typs.foldRight(left) { (typ, acc) =>
+                  Syntax(TermTree.TypeApplication(acc, typ), acc.span.extendedToCover(end.span))}
                 loop(comb)
               }
             }
@@ -127,6 +127,7 @@ object Parser:
       case Some(Token.`if`) => conditional
       case Some(Token.let) => binding
       case Some(Token.leftBracket) => typeAbstraction
+      case Some(Token.fix) => recursiveAbstraction
       case _ => throw expected("term")
 
   private def conditional(using Context): Result[Syntax[TermTree.Conditional]] =
@@ -171,6 +172,18 @@ object Parser:
               )
             }
           }
+      }
+    }
+
+  private def recursiveAbstraction(using Context): Result[Syntax[TermTree.RecursiveAbstraction]] =
+    take(Token.fix, "'fix'").and { start =>
+      termIdentifier.andDiscard(take(Token.colon, "':'")).and { name =>
+        typ3.andDiscard(take(Token.equal, "'='")).and { typ =>
+          term.map { definition =>
+            Syntax(TermTree.RecursiveAbstraction(name, typ, definition), start.span.extendedToCover(definition.span))
+          }
+
+        }
       }
     }
 

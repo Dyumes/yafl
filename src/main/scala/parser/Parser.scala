@@ -97,6 +97,7 @@ object Parser:
       case Some(Token.leftParenthesis) => lambdaOrParenthesized
       case Some(Token.`if`) => conditional
       case Some(Token.let) => binding
+      case Some(Token.leftBracket) => typeAbstraction
       case _ => throw expected("term")
 
   private def conditional(using Context): Result[Syntax[TermTree.Conditional]] =
@@ -122,6 +123,25 @@ object Parser:
             )
           }
         }
+      }
+    }
+
+  private def typeAbstraction(using Context): Result[Syntax[TermTree.TypeAbstraction]] =
+    take(Token.leftBracket, "'['").and { start =>
+      typeIdentifier.and{ firstParameter =>
+        trailingTypeParameters(List(firstParameter))
+          .andDiscard(take(Token.rightBracket,"']'"))
+          .andDiscard(take(Token.thickArrow,"'=>'"))
+          .and { params =>
+            term.map { body =>
+              val desug = params.foldLeft(body) { (b, p) =>
+                Syntax(TermTree.TypeAbstraction(p, b), p.span.extendedToCover(b.span))
+              }
+              Syntax(
+                desug.value.asInstanceOf[TermTree.TypeAbstraction], start.span.extendedToCover(body.span)
+              )
+            }
+          }
       }
     }
 
@@ -196,6 +216,16 @@ object Parser:
           .andCombine(typ3)
           .and(p => trailingTermParameters(p :: ps))
       case _ => result(ps)
+
+  private def trailingTypeParameters(
+      ps: List[Syntax[TypeTree.Variable]]
+  )(using Context) : Result[List[Syntax[TypeTree.Variable]]] =
+    takeIf(Token.hasTag(Token.comma)) match
+      case Some(separator) =>
+        typeIdentifier(using separator.state)
+          .and(p => trailingTypeParameters(p :: ps))
+      case _ => result(ps)
+
 
   /** Parses a type. */
   private def typ3(using Context): Result[Syntax[TypeTree]] =

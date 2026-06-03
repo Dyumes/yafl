@@ -16,13 +16,6 @@ object Optimizer:
   private def constantFoldRecursively(
       tree: Syntax[TermTree], types: TypedProgram.TypeAssignments
   ): (Syntax[TermTree], TypedProgram.TypeAssignments) = {
-    /*
-    constantFold(tree) match
-      case Some(s) =>
-        // Constant folding succeeded; return the updated tree.
-        (s, Map(s -> types(tree)))
-*/
-      //case _ =>
       val (child, ts0) =  tree.value match
         case e: TermTree.TermApplication =>
           val (f, ts) = constantFoldRecursively(e.abstraction, types)
@@ -69,21 +62,21 @@ object Optimizer:
 
   private def optimizerTasks(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments, ts0 : TypedProgram.TypeAssignments): (Syntax[TermTree], TypedProgram.TypeAssignments) = {
     normalize(tree, types) match
-      case Some((norm, tsNorm)) =>
-        return constantFoldRecursively(norm, tsNorm)
+      case Some((norm, tsNorm)) => return constantFoldRecursively(norm, tsNorm)
       case None =>
 
     constantFold(tree, types) match
-      case Some((folded, tsFold)) =>
-        return constantFoldRecursively(folded, tsFold)
+      case Some((folded, tsFold)) => return constantFoldRecursively(folded, tsFold)
       case None =>
-        (tree, ts0)
+
+    constantPropagation(tree, types) match
+      case Some((t, ts)) => return constantFoldRecursively(t, ts)
+      case None =>
 
     deadCodeElimination(tree, types) match
-      case Some((elim, tsElim)) =>
-        return constantFoldRecursively(elim, tsElim)
-      case None =>
-        (tree, types)
+      case Some((elim, tsElim)) => return constantFoldRecursively(elim, tsElim)
+      case None => (tree, types)
+
   }
 
   private def normalize(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments):Option[(Syntax[TermTree], TypedProgram.TypeAssignments)] = {
@@ -124,9 +117,95 @@ object Optimizer:
         Some((success, types.updated(success, type0)))
       case TermTree.Conditional(Syntax(TermTree.BooleanLiteral(false), _), _, failure) =>
         Some((failure, types.updated(failure, type0)))
+      case TermTree.Binding(name, _, body) if !appearsInTerm(name.value.name, body) =>
+        Some((body, types.updated(body, type0)))
       case _ => None
 
   }
+
+  private def appearsInTerm(varName: String, term: Syntax[TermTree]): Boolean = term.value match
+    case TermTree.Variable(n) => n == varName
+    case TermTree.TermApplication(fn, arg) => appearsInTerm(varName, fn) || appearsInTerm(varName, arg)
+    case TermTree.Conditional(cond, success, failure) =>
+      appearsInTerm(varName, cond) || appearsInTerm(varName, success) || appearsInTerm(varName, failure)
+    case TermTree.Binding(n, rhs, scope) =>
+      appearsInTerm(varName, rhs) || (n.value.name != varName && appearsInTerm(varName, scope))
+    case TermTree.TermAbstraction(p, _, scope) => p.value.name != varName && appearsInTerm(varName, scope)
+    case TermTree.RecursiveAbstraction(n, _, d) => n.value.name != varName && appearsInTerm(varName, d)
+    case TermTree.TypeAbstraction(_, scope) => appearsInTerm(varName, scope)
+    case TermTree.TypeApplication(fn, _) => appearsInTerm(varName, fn)
+    case _ => false
+
+
+  private def constantPropagation(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments):Option[(Syntax[TermTree], TypedProgram.TypeAssignments)] = {
+    val type0 = types(tree)
+
+    def isConst(term:Syntax[TermTree]):Boolean = term.value match
+      case _: TermTree.IntegerLiteral => true
+      case _: TermTree.BooleanLiteral => true
+      case TermTree.UnitLiteral => true
+      case _: TermTree.TypeAbstraction => true
+      case _: TermTree.TermAbstraction => true
+      case _ => false
+
+    def replaceVar(varName: String, value: Syntax[TermTree], term: Syntax[TermTree], assignments: TypedProgram.TypeAssignments): (Syntax[TermTree], TypedProgram.TypeAssignments) =
+      if !appearsInTerm(varName, term) then return (term, assignments)
+      val termType = assignments(term)
+      term.value match
+        case TermTree.Variable(_) =>
+          val replaced = Syntax(value.value, term.span)
+          (replaced, assignments.updated(replaced, termType))
+
+        case TermTree.TermApplication(fn, arg) =>
+          val (newFn, a1) = replaceVar(varName, value, fn, assignments)
+          val (newArg, a2) = replaceVar(varName, value, arg, a1)
+          val rewritten = Syntax(TermTree.TermApplication(newFn, newArg), term.span)
+          (rewritten, a2.updated(rewritten, termType))
+
+        case TermTree.Conditional(cond, yes, no) =>
+          val (newCond, a1) = replaceVar(varName, value, cond, assignments)
+          val (newYes, a2) = replaceVar(varName, value, yes, a1)
+          val (newNo, a3) = replaceVar(varName, value, no, a2)
+          val rewritten = Syntax(TermTree.Conditional(newCond, newYes, newNo), term.span)
+          (rewritten, a3.updated(rewritten, termType))
+
+        case TermTree.Binding(n, rhs, scope) =>
+          val (newRhs, a1) = replaceVar(varName, value, rhs, assignments)
+          val (newScope, a2) = if n.value.name == varName then (scope, a1)
+          else replaceVar(varName, value, scope, a1)
+          val rewritten = Syntax(TermTree.Binding(n, newRhs, newScope), term.span)
+          (rewritten, a2.updated(rewritten, termType))
+
+        case TermTree.TermAbstraction(p, asc, scope) =>
+          val (newScope, a1) = replaceVar(varName, value, scope, assignments)
+          val rewritten = Syntax(TermTree.TermAbstraction(p, asc, newScope), term.span)
+          (rewritten, a1.updated(rewritten, termType))
+
+        case TermTree.TypeAbstraction(p, scope) =>
+          val (newScope, a1) = replaceVar(varName, value, scope, assignments)
+          val rewritten = Syntax(TermTree.TypeAbstraction(p, newScope), term.span)
+          (rewritten, a1.updated(rewritten, termType))
+
+        case TermTree.TypeApplication(fn, arg) =>
+          val (newFn, a1) = replaceVar(varName, value, fn, assignments)
+          val rewritten = Syntax(TermTree.TypeApplication(newFn, arg), term.span)
+          (rewritten, a1.updated(rewritten, termType))
+
+        case TermTree.RecursiveAbstraction(n, asc, body) =>
+          val (newBody, a1) = replaceVar(varName, value, body, assignments)
+          val rewritten = Syntax(TermTree.RecursiveAbstraction(n, asc, newBody), term.span)
+          (rewritten, a1.updated(rewritten, termType))
+
+        case _ => (term, assignments)
+
+    tree.value match
+      case TermTree.Binding(name, init, body) if (isConst(init)) && appearsInTerm(name.value.name, body) =>
+        val (bodyy,ts) = replaceVar(name.value.name,init, body, types)
+        val treee = Syntax(TermTree.Binding(name,init,bodyy), tree.span)
+        Some((treee, ts.updated(treee, type0)))
+      case _ => None
+  }
+
 
   /** Returns a literal denoting the result of `tree` iff it represents a constant expression. */
   private def constantFold(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments): Option[(Syntax[TermTree], TypedProgram.TypeAssignments)] =

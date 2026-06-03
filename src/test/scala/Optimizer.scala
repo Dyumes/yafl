@@ -61,6 +61,11 @@ final class OptimizerTests extends munit.FunSuite:
     (optimized.syntax.value: @unchecked) match
     case TermTree.IntegerLiteral(1) => ()
 
+  test("constant propagation and folding cascade"):
+    val optimized = optimize("let x = 2 ; x + 3 * x + 1")
+    (optimized.syntax.value : @unchecked) match
+      case TermTree.IntegerLiteral(9) => ()
+
   /** Compiles `input` to a WebAssembly module and returns an instance of it. */
   private def optimize(input: String): TypedProgram =
     Optimizer.optimize(Typer.check(Parser.parse(SourceFile("test", input))))

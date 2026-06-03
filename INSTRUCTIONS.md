@@ -204,7 +204,7 @@ These can be implemented in any order, but note that normalization may help dram
 Most available tests may require the application of more than one optimization to pass.
 Further, all tests rely on the parser behaving correctly.
 
-- [ ] **Normalization** (optional)
+- [X] **Normalization** (optional)
 
   Equivalent programs can come in many shapes.
   For example, `1 + x + 2` computes the same value as `1 + 2 + x`.
@@ -228,7 +228,7 @@ Further, all tests rely on the parser behaving correctly.
   For example, `(z : Int) => let x = z : x + x` is already in normal form because moving the binding outside of the term abstraction would leave `z` unbound.
 
 
-- [ ] **Dead code elimination** (optional)
+- [X] **Dead code elimination** (optional)
 
   [Dead code elimination](https://en.wikipedia.org/wiki/Dead-code_elimination) consists of removing unreachable code from the program.
   For example, both `if true then 1 else 2 * 3` and `let x = 2 ; a` can be rewritten `1`.
@@ -283,7 +283,7 @@ These can be implemented in any order, although it is recommended to start with 
 Note that all available tests rely on the parser behaving correctly.
 Most tests can only pass if you have also implemented part of the optimizer or if your compiler can handle closures.
 
-- [ ] **Built-in arithmetic and comparison** (optional)
+- [X] **Built-in arithmetic and comparison** (optional)
 
   The current implementation can only handle two built-in operations, namely addition and subtraction.
   For this task, your goal is to support the rest.

@@ -60,6 +60,7 @@ object Optimizer:
       optimizerTasks(child, ts, ts0)
   }
 
+  /** Applies optimization passes to `tree` in order, restarting from the first that rewrites it. */
   private def optimizerTasks(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments, ts0 : TypedProgram.TypeAssignments): (Syntax[TermTree], TypedProgram.TypeAssignments) = {
     normalize(tree, types) match
       case Some((norm, tsNorm)) => return constantFoldRecursively(norm, tsNorm)
@@ -83,6 +84,8 @@ object Optimizer:
 
   }
 
+
+  /** Floats `let` bindings out of applications and groups integer constants in additions. */
   private def normalize(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments):Option[(Syntax[TermTree], TypedProgram.TypeAssignments)] = {
     val type0 = types(tree)
 
@@ -113,6 +116,7 @@ object Optimizer:
         None
   }
 
+  /** Eliminate dead code -> bindings and conditionals */
   private def deadCodeElimination(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments):Option[(Syntax[TermTree], TypedProgram.TypeAssignments)] = {
     val type0 = types(tree)
 
@@ -127,19 +131,27 @@ object Optimizer:
 
   }
 
+  /** Returns `true` iff `varName` occurs free in `term`. */
   private def appearsInTerm(varName: String, term: Syntax[TermTree]): Boolean = term.value match
-    case TermTree.Variable(n) => n == varName
-    case TermTree.TermApplication(fn, arg) => appearsInTerm(varName, fn) || appearsInTerm(varName, arg)
+    case TermTree.Variable(n) =>
+      n == varName
+    case TermTree.TermApplication(fn, arg) =>
+      appearsInTerm(varName, fn) || appearsInTerm(varName, arg)
     case TermTree.Conditional(cond, success, failure) =>
       appearsInTerm(varName, cond) || appearsInTerm(varName, success) || appearsInTerm(varName, failure)
     case TermTree.Binding(n, rhs, scope) =>
       appearsInTerm(varName, rhs) || (n.value.name != varName && appearsInTerm(varName, scope))
-    case TermTree.TermAbstraction(p, _, scope) => p.value.name != varName && appearsInTerm(varName, scope)
-    case TermTree.RecursiveAbstraction(n, _, d) => n.value.name != varName && appearsInTerm(varName, d)
-    case TermTree.TypeAbstraction(_, scope) => appearsInTerm(varName, scope)
-    case TermTree.TypeApplication(fn, _) => appearsInTerm(varName, fn)
+    case TermTree.TermAbstraction(p, _, scope) =>
+      p.value.name != varName && appearsInTerm(varName, scope)
+    case TermTree.RecursiveAbstraction(n, _, d) =>
+      n.value.name != varName && appearsInTerm(varName, d)
+    case TermTree.TypeAbstraction(_, scope) =>
+      appearsInTerm(varName, scope)
+    case TermTree.TypeApplication(fn, _) =>
+      appearsInTerm(varName, fn)
     case _ => false
 
+  /** Substitutes free occurrences of `name` with `value` in `term`, updating the types. */
   private def replace(name: String, value: Syntax[TermTree], term: Syntax[TermTree], assignments: TypedProgram.TypeAssignments): (Syntax[TermTree], TypedProgram.TypeAssignments) =
     if !appearsInTerm(name, term) then return (term, assignments)
     val termType = assignments(term)
@@ -190,6 +202,7 @@ object Optimizer:
 
       case _ => (term, assignments)
 
+  /** Propagates a value (literal, unit, or abstraction) into its uses, keeping the binding. */
   private def constantPropagation(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments):Option[(Syntax[TermTree], TypedProgram.TypeAssignments)] = {
     val type0 = types(tree)
 
@@ -209,6 +222,7 @@ object Optimizer:
       case _ => None
   }
 
+  /** Reduces the application of a literal abstraction to its argument. */
   private def inlining(tree: Syntax[TermTree], types: TypedProgram.TypeAssignments): Option[(Syntax[TermTree], TypedProgram.TypeAssignments)] = {
     val type0 = types(tree)
     tree.value match

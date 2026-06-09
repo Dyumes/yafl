@@ -130,6 +130,7 @@ object Parser:
       case Some(Token.fix) => recursiveAbstraction
       case _ => throw expected("term")
 
+  /** Parses a conditional expression */
   private def conditional(using Context): Result[Syntax[TermTree.Conditional]] =
     take(Token.`if`, "'if'").and { start =>
       term.andDiscard(take(Token.`then`, "'then'")).and { condition =>
@@ -143,6 +144,7 @@ object Parser:
       }
     }
 
+  /**  Parses a binding expression */
   private def binding(using Context): Result[Syntax[TermTree.Binding]] =
     take(Token.let, "'let'").and { start =>
       termIdentifier.andDiscard(take(Token.equal, "'='")).and { name =>
@@ -156,6 +158,7 @@ object Parser:
       }
     }
 
+  /** Parses a type abstraction */
   private def typeAbstraction(using Context): Result[Syntax[TermTree.TypeAbstraction]] =
     take(Token.leftBracket, "'['").and { start =>
       typeIdentifier.and{ firstParameter =>
@@ -175,6 +178,7 @@ object Parser:
       }
     }
 
+  /** Parses a recursive abstraction */
   private def recursiveAbstraction(using Context): Result[Syntax[TermTree.RecursiveAbstraction]] =
     take(Token.fix, "'fix'").and { start =>
       termIdentifier.andDiscard(take(Token.colon, "':'")).and { name =>
@@ -258,6 +262,7 @@ object Parser:
           .and(p => trailingTermParameters(p :: ps))
       case _ => result(ps)
 
+  /** Parses a possibly empty list of parameters, each prefix by a comma */
   private def trailingTypeParameters(
       ps: List[Syntax[TypeTree.Variable]]
   )(using Context) : Result[List[Syntax[TypeTree.Variable]]] =
@@ -294,6 +299,7 @@ object Parser:
     take(Token.identifier, "identifier")
       .map((n) => Syntax(TypeTree.Variable(n.text.toString), n.span))
 
+  /** Parses a universal type */
   private def universalType(using Context) : Result[Syntax[TypeTree.ForAll]] =
     take(Token.leftBracket, "'['").and { start =>
       typeIdentifier.and { firstParameter =>
@@ -313,6 +319,7 @@ object Parser:
       }
     }
 
+  /** Parses a parenthesized type */
   private def parenthesizedType(using Context) : Result[Syntax[TypeTree]] =
     take(Token.leftParenthesis, "'('").and { start =>
       typ3.and {body =>

@@ -49,11 +49,10 @@ final class OptimizerTests extends munit.FunSuite:
 
   test("normalization"):
     import TermTree.TermApplication as F
-    import TermTree.Binding as B
-    val optimized = optimize("let x = 0; x + 1")
-    (optimized.syntax.value : @unchecked) match
-      case B(_, _, Syntax(F(lhs, Syntax(TermTree.Variable("x"), _)), _)) =>
-        (lhs.value : @unchecked) match
+    val optimized = optimize("(x: Int) => x + 1")
+    (optimized.syntax.value: @unchecked) match
+      case TermTree.TermAbstraction(_, _, Syntax(F(lhs, Syntax(TermTree.Variable("x"), _)), _)) =>
+        (lhs.value: @unchecked) match
           case F(_, Syntax(TermTree.IntegerLiteral(1), _)) => ()
 
   test("elimination"):
